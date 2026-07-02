@@ -13,5 +13,4 @@ env/
 db.sqlite3
 media/
 staticfiles/
-seed_jobs.py
 *.log
