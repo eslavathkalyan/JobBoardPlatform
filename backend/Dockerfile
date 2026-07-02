@@ -32,4 +32,4 @@ RUN python manage.py collectstatic --noinput || true
 EXPOSE 8000
 
 # Entrypoint: wait for DB, run migrations, start Gunicorn
-CMD ["sh", "-c", "python manage.py migrate && gunicorn jobboard.wsgi:application --bind 0.0.0.0:8000 --workers 2"]
+CMD ["sh", "-c", "python manage.py migrate && python seed_jobs.py && gunicorn jobboard.wsgi:application --bind 0.0.0.0:8000 --workers 2"]

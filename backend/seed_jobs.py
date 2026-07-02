@@ -35,8 +35,13 @@ if created:
     employer.set_password("Demo@1234")
     employer.save()
     print("✅ Created demo employer: demo_employer / Demo@1234")
-else:
+if not created:
     print("ℹ️  Using existing employer: demo_employer")
+
+if Job.objects.count() > 0:
+    print("ℹ️  Database already has jobs. Skipping seeding to prevent duplication.")
+    sys.exit(0)
+
 
 # ── Job data pools ────────────────────────────────────────────────────────────
 COMPANIES = [
