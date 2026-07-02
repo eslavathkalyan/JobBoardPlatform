@@ -28,18 +28,23 @@ function Register() {
       await axios.post("/api/users/register/", form);
       setSuccess(true);
     } catch (err) {
-      // Extract the real Django validation error
+      console.error("Registration error details:", err);
+      const status = err.response?.status;
       const data = err.response?.data;
-      if (data) {
-        // Django returns field errors as { fieldname: ["error msg"] }
-        const messages = Object.entries(data)
+      
+      let errMsg = `Error: ${err.message || "Unknown error"}`;
+      if (status) errMsg += ` (Status: ${status})`;
+      
+      if (data && typeof data === "object") {
+        const fieldErrors = Object.entries(data)
           .map(([field, msgs]) => `${field}: ${Array.isArray(msgs) ? msgs.join(", ") : msgs}`)
           .join(" | ");
-        setError(messages || "Registration failed. Please try again.");
-      } else {
-        setError("Registration failed. Could not reach the server.");
+        if (fieldErrors) errMsg += ` - ${fieldErrors}`;
+      } else if (data && typeof data === "string") {
+        errMsg += ` - ${data.substring(0, 100)}`;
       }
-      console.log("Registration error:", err.response?.data);
+
+      setError(errMsg);
     } finally {
       setLoading(false);
     }
