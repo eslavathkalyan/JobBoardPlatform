@@ -1,0 +1,75 @@
+# ═══════════════════════════════════════════════════════════════════
+#  Render Blueprint Specification (render.yaml)
+#
+#  Allows deploying the entire full-stack application on Render
+#  with one click from your GitHub repository.
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+  # ── Backend Web Service (Django) ────────────────────────────────
+  - type: web
+    name: jobboard-backend
+    env: python
+    buildCommand: |
+      cd backend
+      pip install -r requirements.txt gunicorn
+      python manage.py collectstatic --noinput
+      python manage.py migrate --noinput
+    startCommand: |
+      cd backend
+      gunicorn jobboard.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DB_HOST
+        fromDatabase:
+          name: jobboard-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: jobboard-db
+          property: port
+      - key: DB_NAME
+        fromDatabase:
+          name: jobboard-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: jobboard-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: jobboard-db
+          property: password
+      - key: ALLOWED_HOSTS
+        value: "jobboard-backend.onrender.com localhost 127.0.0.1"
+
+  # ── Frontend Static Site (React) ───────────────────────────────
+  - type: web
+    name: jobboard-frontend
+    env: static
+    buildCommand: |
+      cd frontend
+      npm install
+      npm run build
+    publishPath: frontend/dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
+    routes:
+      # Route all API requests to the backend web service
+      - type: rewrite
+        source: /api/*
+        destination: https://jobboard-backend.onrender.com/api/*
+      # Single Page Application routing: rewrite all other routes to index.html
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+# ── PostgreSQL Database ───────────────────────────────────────────
+databases:
+  - name: jobboard-db
+    plan: free
