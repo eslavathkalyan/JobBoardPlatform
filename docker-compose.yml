@@ -1,0 +1,86 @@
+version: "3.9"
+
+# ═══════════════════════════════════════════════════════════════════
+#  JobBoard Platform  –  Docker Compose
+#
+#  Services:
+#   • db       – PostgreSQL 15
+#   • backend  – Django + Gunicorn  (port 8000)
+#   • frontend – React + Nginx      (port 80)
+#
+#  Usage:
+#   docker compose up --build          # first run
+#   docker compose up -d               # detached mode
+#   docker compose down                # stop all
+#   docker compose down -v             # stop + delete volumes
+# ═══════════════════════════════════════════════════════════════════
+
+services:
+
+  # ── PostgreSQL Database ─────────────────────────────────────────
+  db:
+    image: postgres:15-alpine
+    container_name: jobboard_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${DB_NAME:-jobboard_db}
+      POSTGRES_USER:     ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"       # expose on 5433 to avoid conflict with local PG
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-jobboard_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Django Backend ──────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jobboard_backend
+    restart: unless-stopped
+    environment:
+      SECRET_KEY:  ${SECRET_KEY:-django-insecure-docker-secret-key-change-in-production}
+      DB_NAME:     ${DB_NAME:-jobboard_db}
+      DB_USER:     ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-root}
+      DB_HOST:     db          # ← use service name, not localhost
+      DB_PORT:     5432
+      DEBUG:       ${DEBUG:-True}
+    volumes:
+      - media_data:/app/media     # persist uploaded resumes
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        echo 'Waiting for DB...' &&
+        python manage.py migrate --noinput &&
+        echo 'Migrations done.' &&
+        gunicorn jobboard.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 60
+      "
+
+  # ── React Frontend (Nginx) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jobboard_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+# ── Named Volumes ───────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  media_data:
+    driver: local

@@ -1,0 +1,17 @@
+# Backend .dockerignore
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+env/
+.env
+*.sqlite3
+.git/
+.gitignore
+db.sqlite3
+media/
+staticfiles/
+seed_jobs.py
+*.log
